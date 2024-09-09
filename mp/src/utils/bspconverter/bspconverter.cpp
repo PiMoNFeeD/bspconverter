@@ -113,7 +113,6 @@ int main(int argc, char* argv[])
 		char mapFile[1024];
 		V_FileBase( argv[argc - 1], mapFile, sizeof( mapFile ) );
 		V_strncpy( mapFile, ExpandPath( mapFile ), sizeof( mapFile ) );
-		V_strncat( mapFile, ".bsp", sizeof( mapFile ) );
 
 		// Setup the logfile.
 		char logFile[512];
@@ -122,6 +121,7 @@ int main(int argc, char* argv[])
 
 		g_bBSPConverterMode = true;
 
+		V_strncat( mapFile, ".bsp", sizeof( mapFile ) );
 		Msg( "Leading %s\n", mapFile );
 		LoadBSPFile( mapFile );
 		if ( numnodes == 0 || numfaces == 0 )
