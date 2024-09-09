@@ -1,0 +1,14 @@
+//-----------------------------------------------------------------------------
+//	PROJECTS.VGC
+//
+//	Project Configurations for all Source(TM) Projects
+//-----------------------------------------------------------------------------
+
+/////////////////////////
+// Project definitions //
+/////////////////////////
+
+$Project "bspconverter"
+{
+	"utils\bspconverter\bspconverter.vpc" [$WINDOWS]
+}
