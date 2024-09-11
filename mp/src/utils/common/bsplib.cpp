@@ -2636,10 +2636,12 @@ void ValidateHeader( const char *filename, const dheader_t *pHeader )
 	}
 	if ( g_bBSPConverterMode )
 	{
-		if ( pHeader->version != 21 )
-		{
-			Error( "%s is version %i, not 21", filename, pHeader->version, 21 );
-		}
+		if ( pHeader->version == 21 )
+			Msg( "Valve BSP detected (version 21)\n" );
+		else if ( pHeader->version == 22 )
+			Msg( "Tactical Intervention BSP detected (version 22)\n" );
+		else
+			Error( "%s is version %i, unsupported", filename );
 	}
 	else
 	{
@@ -2755,7 +2757,23 @@ void LoadBSPFile( const char *filename )
 
 	LoadLeafAmbientLighting( numleafs );
 
-	CopyLump( FIELD_CHARACTER, LUMP_ENTITIES, dentdata );
+	if ( g_bBSPConverterMode && g_pBSPHeader->version == 22 ) // Tactical Intervention
+	{
+		// TI uses a separate lump for client-side only entities, so merge them together (they both contain the same data, aka a bunch of KV blocks)
+		dentdata.SetCount( g_pBSPHeader->lumps[LUMP_ENTITIES].filelen + g_pBSPHeader->lumps[24].filelen - 1 ); // -1 to skip one of null terminators that both lumps have
+
+		// copy first lump
+		V_memcpy( dentdata.Base(), (byte*)g_pBSPHeader + g_pBSPHeader->lumps[LUMP_ENTITIES].fileofs, g_pBSPHeader->lumps[LUMP_ENTITIES].filelen );
+
+		// copy second lump right after the first one
+		// note the -1 in first argument: it skips the null terminator at the end of the first lump
+		V_memcpy( dentdata.Base() + g_pBSPHeader->lumps[LUMP_ENTITIES].filelen - 1, (byte*)g_pBSPHeader + g_pBSPHeader->lumps[24].fileofs, g_pBSPHeader->lumps[24].filelen );
+	}
+	else
+	{
+		CopyLump( FIELD_CHARACTER, LUMP_ENTITIES, dentdata );
+	}
+
 	if ( g_bBSPConverterMode )
 	{
 		numworldlightsLDR = LoadWorldLightsLump( LUMP_WORLDLIGHTS, dworldlightsLDR );
