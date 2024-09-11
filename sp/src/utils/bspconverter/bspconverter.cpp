@@ -20,6 +20,7 @@
 #include "utlbuffer.h"
 
 bool g_bSpewMissingAssets = false;
+char g_szOutputFile[MAX_PATH] = { 0 };
 int ParseCommandLine( int argc, char** argv )
 {
 	int i;
@@ -33,6 +34,14 @@ int ParseCommandLine( int argc, char** argv )
 		{
 			g_bSpewMissingAssets = true;
 		}
+		else if ( !V_stricmp( argv[i], "-o" ) || !V_stricmp( argv[i], "-output" ) )
+		{
+			if ( i + 1 < argc )
+			{
+				V_StripExtension( argv[i + 1], g_szOutputFile, sizeof( g_szOutputFile ) );
+				i++;
+			}
+		}
 		else if ( V_stricmp( argv[i], "-steam" ) == 0 )
 		{
 		}
@@ -45,7 +54,7 @@ int ParseCommandLine( int argc, char** argv )
 		}
 		else if ( !V_stricmp( argv[i], "-vproject" ) || !V_stricmp( argv[i], "-game" ) || !V_stricmp( argv[i], "-insert_search_path" ) )
 		{
-			++i;
+			i++;
 		}
 		else if ( !V_stricmp( argv[i], "-FullMinidumps" ) )
 		{
@@ -79,6 +88,7 @@ void PrintUsage( int argc, char** argv )
 		"\n"
 		"Common options:\n"
 		"\n"
+		"  -o (or -output)    : Specifies output file name, defaults to <mapname>_fixed.bsp\n"
 		"  -nolightdata       : Doesn't save any light information in the fixed file\n"
 		"  -spewmissingassets : Logs every missing brush texture and static prop model\n"
 		"\n"
@@ -130,9 +140,18 @@ int main(int argc, char* argv[])
 		PrintBSPFileSizes();
 
 		char szMapFileFixed[MAX_PATH];
-		V_FileBase( argv[argc - 1], szMapFileFixed, sizeof( szMapFileFixed ) );
-		V_strcpy_safe( szMapFileFixed, ExpandPath( szMapFileFixed ) );
-		V_strcat_safe( szMapFileFixed, "_fixed.bsp" );
+		if ( g_szOutputFile[0] )
+		{
+			V_strcpy_safe( szMapFileFixed, qdir );
+			V_strcat_safe( szMapFileFixed, g_szOutputFile );
+			V_strcat_safe( szMapFileFixed, ".bsp" );
+		}
+		else
+		{
+			V_FileBase( argv[argc - 1], szMapFileFixed, sizeof( szMapFileFixed ) );
+			V_strcpy_safe( szMapFileFixed, ExpandPath( szMapFileFixed ) );
+			V_strcat_safe( szMapFileFixed, "_fixed.bsp" );
+		}
 		Msg( "Writing %s\n", szMapFileFixed );
 		WriteBSPFile( szMapFileFixed );
 
