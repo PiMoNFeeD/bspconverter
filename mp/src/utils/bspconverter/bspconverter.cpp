@@ -96,6 +96,7 @@ void PrintUsage( int argc, char** argv )
 		"  -o (or -output)    : Specifies output file name, defaults to <mapname>_fixed.bsp\n"
 		"  -nolightdata       : Doesn't save any light information in the fixed file\n"
 		"  -spewmissingassets : Logs every missing brush texture and static prop model\n"
+		"  -v (or -verbose)   : Turn on verbose output\n"
 		"\n"
 	);
 }
