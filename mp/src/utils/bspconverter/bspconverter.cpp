@@ -102,42 +102,42 @@ int main(int argc, char* argv[])
 
 	CmdLib_InitFileSystem( argv[argc - 1] );
 
-	char materialPath[1024];
-	sprintf( materialPath, "%smaterials", gamedir );
-	InitMaterialSystem( materialPath, CmdLib_GetFileSystemFactory() );
-	Msg( "materialPath: %s\n", materialPath );
+	char szMaterialPath[MAX_PATH];
+	sprintf( szMaterialPath, "%smaterials", gamedir );
+	InitMaterialSystem( szMaterialPath, CmdLib_GetFileSystemFactory() );
+	Msg( "materialPath: %s\n", szMaterialPath );
 
-	float start = Plat_FloatTime();
+	float flStart = Plat_FloatTime();
 
 	{
-		char mapFile[1024];
-		V_FileBase( argv[argc - 1], mapFile, sizeof( mapFile ) );
-		V_strncpy( mapFile, ExpandPath( mapFile ), sizeof( mapFile ) );
+		char szMapFile[MAX_PATH];
+		V_FileBase( argv[argc - 1], szMapFile, sizeof( szMapFile ) );
+		V_strcpy_safe( szMapFile, ExpandPath( szMapFile ) );
 
 		// Setup the logfile.
-		char logFile[512];
-		_snprintf( logFile, sizeof( logFile ), "%s.log", mapFile );
-		SetSpewFunctionLogFile( logFile );
+		char szLogFile[MAX_PATH];
+		V_snprintf( szLogFile, sizeof( szLogFile ), "%s.log", szMapFile );
+		SetSpewFunctionLogFile( szLogFile );
 
 		g_bBSPConverterMode = true;
 
-		V_strncat( mapFile, ".bsp", sizeof( mapFile ) );
-		Msg( "Leading %s\n", mapFile );
-		LoadBSPFile( mapFile );
+		V_strcat_safe( szMapFile, ".bsp" );
+		Msg( "Leading %s\n", szMapFile );
+		LoadBSPFile( szMapFile );
 		if ( numnodes == 0 || numfaces == 0 )
 			Error( "Empty map" );
 		//ParseEntities(); -- only needed to check max entities, but not critical
 		PrintBSPFileSizes();
 
-		char mapFileFixed[1024];
-		V_FileBase( argv[argc - 1], mapFileFixed, sizeof( mapFileFixed ) );
-		V_strncpy( mapFileFixed, ExpandPath( mapFileFixed ), sizeof( mapFileFixed ) );
-		V_strncat( mapFileFixed, "_fixed.bsp", sizeof( mapFileFixed ) );
-		Msg( "Writing %s\n", mapFileFixed );
-		WriteBSPFile( mapFileFixed );
+		char szMapFileFixed[MAX_PATH];
+		V_FileBase( argv[argc - 1], szMapFileFixed, sizeof( szMapFileFixed ) );
+		V_strcpy_safe( szMapFileFixed, ExpandPath( szMapFileFixed ) );
+		V_strcat_safe( szMapFileFixed, "_fixed.bsp" );
+		Msg( "Writing %s\n", szMapFileFixed );
+		WriteBSPFile( szMapFileFixed );
 
-		g_pFullFileSystem->AddSearchPath( mapFileFixed, "GAME", PATH_ADD_TO_HEAD );
-		g_pFullFileSystem->AddSearchPath( mapFileFixed, "MOD", PATH_ADD_TO_HEAD );
+		g_pFullFileSystem->AddSearchPath( szMapFileFixed, "GAME", PATH_ADD_TO_HEAD );
+		g_pFullFileSystem->AddSearchPath( szMapFileFixed, "MOD", PATH_ADD_TO_HEAD );
 
 		// check if assets exist
 		// do it after writing the new file because of embedded files, because filesystem ignores bsps with invalid version!
@@ -172,11 +172,11 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	float end = Plat_FloatTime();
+	float flEnd = Plat_FloatTime();
 
-	char str[512];
-	GetHourMinuteSecondsString( (int)(end - start), str, sizeof( str ) );
-	Msg( "%s elapsed\n", str );
+	char szElapsed[128];
+	GetHourMinuteSecondsString( (int)(flEnd - flStart), szElapsed, sizeof( szElapsed ) );
+	Msg( "%s elapsed\n", szElapsed );
 
 	ShutdownMaterialSystem();
 	CmdLib_Cleanup();
