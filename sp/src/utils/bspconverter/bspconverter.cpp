@@ -150,10 +150,8 @@ int main(int argc, char* argv[])
 		PrintBSPFileSizes();
 
 		char szMapFileFixed[MAX_PATH];
-		char szMapNameFixed[MAX_PATH];
 		if ( g_szOutputFile[0] )
 		{
-			V_strcpy_safe( szMapNameFixed, g_szOutputFile );
 			V_strcpy_safe( szMapFileFixed, qdir );
 			V_strcat_safe( szMapFileFixed, g_szOutputFile );
 			V_strcat_safe( szMapFileFixed, ".bsp" );
@@ -163,7 +161,7 @@ int main(int argc, char* argv[])
 			V_FileBase( argv[argc - 1], szMapFileFixed, sizeof( szMapFileFixed ) );
 			V_strcpy_safe( szMapFileFixed, ExpandPath( szMapFileFixed ) );
 			V_strcat_safe( szMapFileFixed, "_fixed.bsp" );
-			V_StripExtension( V_GetFileName( szMapFileFixed ), szMapNameFixed, sizeof( szMapNameFixed ) );
+			V_StripExtension( V_GetFileName( szMapFileFixed ), g_szOutputFile, sizeof( g_szOutputFile ) );
 		}
 
 		if ( V_strcmp( szMapFile, szMapFileFixed ) )
@@ -224,7 +222,7 @@ int main(int argc, char* argv[])
 
 							// need to store fixed name in a temporary buffer, or memory will go kaboom
 							char szFixedFileName[MAX_PATH];
-							V_snprintf( szFixedFileName, sizeof( szFixedFileName ), "materials/maps/%s/%s", szMapNameFixed, &szRelativeFileName[iMaterialsFolderLength] );
+							V_snprintf( szFixedFileName, sizeof( szFixedFileName ), "materials/maps/%s/%s", g_szOutputFile, &szRelativeFileName[iMaterialsFolderLength] );
 
 							qprintf( "Fixed embedded file path: '%s'\n", szFixedFileName );
 
@@ -257,7 +255,7 @@ int main(int argc, char* argv[])
 									{
 										// this envmap does indeed live inside a map-named subfolder, fix it!
 										char szFixedEnvmapPath[MAX_PATH];
-										V_snprintf( szFixedEnvmapPath, sizeof( szFixedEnvmapPath ), "maps/%s/%s", szMapNameFixed, &pszEnvmapName[iMaterialsFolderLength] );
+										V_snprintf( szFixedEnvmapPath, sizeof( szFixedEnvmapPath ), "maps/%s/%s", g_szOutputFile, &pszEnvmapName[iMaterialsFolderLength] );
 										pkvMaterialReplaceBlock->SetString( "$envmap", szFixedEnvmapPath );
 
 										// PiMoN: unfortunately, KV doesn't have any way to save itself to a buffer, so I will have to commit an insane hack:
