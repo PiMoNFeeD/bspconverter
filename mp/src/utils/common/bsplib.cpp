@@ -759,7 +759,7 @@ static unsigned int AlignFilePosition( FileHandle_t hFile, int alignment )
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: // Get a pakfile instance
+// Purpose: Get a pakfile instance
 // Output : IZip*
 //-----------------------------------------------------------------------------
 IZip* GetPakFile( void )
@@ -769,6 +769,18 @@ IZip* GetPakFile( void )
 		s_pakFile = IZip::CreateZip();
 	}
 	return s_pakFile;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Set a pakfile instance
+//-----------------------------------------------------------------------------
+void SetPakFile( IZip* pak )
+{
+	// PiMoN: static my ass :angry:
+	if ( s_pakFile )
+		ReleasePakFileLumps();
+
+	s_pakFile = pak;
 }
 
 //-----------------------------------------------------------------------------

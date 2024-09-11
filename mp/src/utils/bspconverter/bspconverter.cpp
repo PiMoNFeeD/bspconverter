@@ -18,6 +18,7 @@
 #include "utilmatlib.h"
 #include "gamebspfile.h"
 #include "utlbuffer.h"
+#include "KeyValues.h"
 
 bool g_bSpewMissingAssets = false;
 char g_szOutputFile[MAX_PATH] = { 0 };
@@ -41,6 +42,10 @@ int ParseCommandLine( int argc, char** argv )
 				V_StripExtension( argv[i + 1], g_szOutputFile, sizeof( g_szOutputFile ) );
 				i++;
 			}
+		}
+		else if ( !V_stricmp( argv[i], "-v" ) || !V_stricmp( argv[i], "-verbose" ) )
+		{
+			verbose = true;
 		}
 		else if ( V_stricmp( argv[i], "-steam" ) == 0 )
 		{
@@ -124,6 +129,9 @@ int main(int argc, char* argv[])
 		V_FileBase( argv[argc - 1], szMapFile, sizeof( szMapFile ) );
 		V_strcpy_safe( szMapFile, ExpandPath( szMapFile ) );
 
+		char szMapName[MAX_PATH];
+		V_strcpy_safe( szMapName, V_GetFileName( szMapFile ) );
+
 		// Setup the logfile.
 		char szLogFile[MAX_PATH];
 		V_snprintf( szLogFile, sizeof( szLogFile ), "%s.log", szMapFile );
@@ -140,8 +148,10 @@ int main(int argc, char* argv[])
 		PrintBSPFileSizes();
 
 		char szMapFileFixed[MAX_PATH];
+		char szMapNameFixed[MAX_PATH];
 		if ( g_szOutputFile[0] )
 		{
+			V_strcpy_safe( szMapNameFixed, g_szOutputFile );
 			V_strcpy_safe( szMapFileFixed, qdir );
 			V_strcat_safe( szMapFileFixed, g_szOutputFile );
 			V_strcat_safe( szMapFileFixed, ".bsp" );
@@ -151,7 +161,128 @@ int main(int argc, char* argv[])
 			V_FileBase( argv[argc - 1], szMapFileFixed, sizeof( szMapFileFixed ) );
 			V_strcpy_safe( szMapFileFixed, ExpandPath( szMapFileFixed ) );
 			V_strcat_safe( szMapFileFixed, "_fixed.bsp" );
+			V_StripExtension( V_GetFileName( szMapFileFixed ), szMapNameFixed, sizeof( szMapNameFixed ) );
 		}
+
+		if ( V_strcmp( szMapFile, szMapFileFixed ) )
+		{
+			// if file names don't match, we need to fix up bundled cubemaps and patched vmts
+			// TODO: only cubemaps are currently processed!
+
+			IZip* pNewPakFile = IZip::CreateZip( NULL );
+			int iID = -1;
+			while ( 1 )
+			{
+				int iFileSize;
+				char szRelativeFileName[MAX_PATH];
+				iID = GetNextFilename( GetPakFile(), iID, szRelativeFileName, sizeof( szRelativeFileName ), iFileSize );
+				if ( iID == -1 )
+					break;
+
+				CUtlBuffer bufFile;
+				bool bOK = ReadFileFromPak( GetPakFile(), szRelativeFileName, false, bufFile );
+				if ( !bOK )
+				{
+					Warning( "Failed to load '%s' from lump pak in '%s'.\n", szRelativeFileName, szMapName );
+					continue;
+				}
+				
+				// no idea if this is necessary, but not a bad practice to make sure slashes are the same!
+				V_FixSlashes( szRelativeFileName, '/' );
+
+				// have to copy extension to a temp buffer, because path fixup below will make pointer invalid
+				char szExtension[16] = { 0 };
+				V_strcpy_safe( szExtension, V_GetFileExtension( szRelativeFileName ) );
+				if ( szExtension[0] )
+				{
+					// do path fixup for materials and textures that are loaded by bsp name
+					if ( !V_strcmp( szExtension, "vtf" ) || !V_strcmp( szExtension, "vmt" ) )
+					{
+						// we only need to fix up files that are inside materials/maps/<mapname> folder, so disregard anything that isn't that
+						char szMaterialsFolder[MAX_PATH];
+						V_snprintf( szMaterialsFolder, sizeof( szMaterialsFolder ), "materials/maps/%s/", szMapName );
+						int iMaterialsFolderLength = V_strlen( szMaterialsFolder );
+
+						// oh boy...
+						if ( !V_strncasecmp( szMaterialsFolder, szRelativeFileName, iMaterialsFolderLength ) )
+						{
+							// this vtf does indeed live inside a map-named subfolder, fix it!
+							if ( !V_strcmp( szExtension, "vtf" ) )
+							{
+								// read vtf version to see if it will load in game...
+								VTFFileBaseHeader_t vtfHeader;
+								bufFile.SeekGet( CUtlBuffer::SEEK_HEAD, 0 );
+								bufFile.Get( &vtfHeader, sizeof( vtfHeader ) );
+								if ( !V_strcmp( vtfHeader.fileTypeString, "VTF" ) )
+								{
+									if ( vtfHeader.version[0] != VTF_MAJOR_VERSION || vtfHeader.version[1] < 0 || vtfHeader.version[1] > VTF_MINOR_VERSION )
+										Warning( "Cubemap '%s' has version %d.%d, will not load in game! Rebuild cubemaps manually!\n", szRelativeFileName, vtfHeader.version[0], vtfHeader.version[1] );
+								}
+							}
+
+							// need to store fixed name in a temporary buffer, or memory will go kaboom
+							char szFixedFileName[MAX_PATH];
+							V_snprintf( szFixedFileName, sizeof( szFixedFileName ), "materials/maps/%s/%s", szMapNameFixed, &szRelativeFileName[iMaterialsFolderLength] );
+
+							qprintf( "Fixed embedded file path: '%s'\n", szFixedFileName );
+
+							V_strcpy_safe( szRelativeFileName, szFixedFileName );
+						}
+					}
+
+					// do path fixup for patched materials (vbsp patches some vmts to replace env_cubemap with full path to cubemap file)
+					if ( !V_strcmp( szExtension, "vmt" ) )
+					{
+						bufFile.SetBufferType( true, true );
+
+						// here's hoping this is the only thing vbsp does...
+						KeyValues* pkvMaterial = new KeyValues( "patch" );
+						if ( pkvMaterial && pkvMaterial->LoadFromBuffer( szRelativeFileName, bufFile ) )
+						{
+							KeyValues* pkvMaterialReplaceBlock = pkvMaterial->FindKey( "replace" );
+							if ( pkvMaterialReplaceBlock )
+							{
+								const char* pszEnvmapName = pkvMaterialReplaceBlock->GetString( "$envmap", NULL );
+								if ( pszEnvmapName )
+								{
+									// we only need to fix up strings that point inside maps/<mapname> folder, so disregard anything that isn't that
+									char szMaterialsFolder[MAX_PATH];
+									V_snprintf( szMaterialsFolder, sizeof( szMaterialsFolder ), "maps/%s/", szMapName );
+									int iMaterialsFolderLength = V_strlen( szMaterialsFolder );
+
+									// oh boy...
+									if ( !V_strncasecmp( szMaterialsFolder, pszEnvmapName, iMaterialsFolderLength ) )
+									{
+										// this envmap does indeed live inside a map-named subfolder, fix it!
+										char szFixedEnvmapPath[MAX_PATH];
+										V_snprintf( szFixedEnvmapPath, sizeof( szFixedEnvmapPath ), "maps/%s/%s", szMapNameFixed, &pszEnvmapName[iMaterialsFolderLength] );
+										pkvMaterialReplaceBlock->SetString( "$envmap", szFixedEnvmapPath );
+
+										// PiMoN: unfortunately, KV doesn't have any way to save itself to a buffer, so I will have to commit an insane hack:
+										// save KV to a temp file first, then load that file to buffer and hope it doesn't shit itself :facepalm:
+										if ( pkvMaterial->SaveToFile( g_pFileSystem, "bspconverter_temp.txt", "GAME" ) )
+										{
+											bufFile.Clear(); // if I don't clear the buffer, it will crash when trying to grow existing buffer...
+											if ( g_pFileSystem->ReadFile( "bspconverter_temp.txt", "GAME", bufFile ) )
+											{
+												g_pFullFileSystem->RemoveFile( "bspconverter_temp.txt", "GAME" );
+												qprintf( "Fixed embedded material cubemap patch: '%s'\n", szFixedEnvmapPath );
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				AddBufferToPak( pNewPakFile, szRelativeFileName, bufFile.Base(), bufFile.TellMaxPut(), false, IZip::eCompressionType_None );
+			}
+
+			// discard old pak in favor of new pak
+			SetPakFile( pNewPakFile );
+		}
+
 		Msg( "Writing %s\n", szMapFileFixed );
 		WriteBSPFile( szMapFileFixed );
 

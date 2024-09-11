@@ -195,7 +195,7 @@ extern int			g_PhysDispSize;
 
 // Embedded pack/pak file
 IZip				*GetPakFile( void );
-IZip				*GetSwapPakFile( void );
+void				SetPakFile( IZip *pak );
 void				ClearPakFile( IZip *pak );
 void				AddFileToPak( IZip *pak, const char *pRelativeName, const char *fullpath );
 void				AddBufferToPak( IZip *pak, const char *pRelativeName, void *data, int length, bool bTextMode );
