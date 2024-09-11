@@ -1,5 +1,8 @@
 # bspconverter
-A Source Engine tool that converts BSP 21 maps into Source 2013 engine branch without decompilation.
+A Source Engine tool that converts newer maps into Source 2013 engine branch without decompilation.
+Currently supported:
+- Every Valve-made BSP v21
+- Tactical Intervention BSP v22
 
 # Installation
 Grab latest release [here](https://github.com/PiMoNFeeD/bspconverter/releases) for either SDK 2013 SP or MP. Extract it to your SDK root folder (`bspconverter.exe` must live inside `bin` folder!)
