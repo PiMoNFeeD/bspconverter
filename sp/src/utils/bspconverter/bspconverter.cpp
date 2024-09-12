@@ -171,8 +171,7 @@ int main(int argc, char* argv[])
 
 		if ( V_strcmp( szMapFile, szMapFileFixed ) )
 		{
-			// if file names don't match, we need to fix up bundled cubemaps and patched vmts
-			// TODO: only cubemaps are currently processed!
+			// if input and output file names don't match, we need to fix up bundled cubemaps and patched vmts
 
 			IZip* pNewPakFile = IZip::CreateZip( NULL );
 			int iID = -1;
