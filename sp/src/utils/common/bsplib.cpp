@@ -2768,6 +2768,9 @@ void LoadBSPFile( const char *filename )
 					// PiMoN: wow! C++ 11 features in Source! technologies of the future!
 					auto FixupAlphaData = []( CUtlVector<byte>& vecLightData, const int& iNumFaces, dface_t* pFaces )
 					{
+						if ( vecLightData.IsEmpty() )
+							return;
+
 						CUtlVector<byte> vecNewLightData;
 						vecNewLightData.EnsureCapacity( vecLightData.Count() ); // same data without alpha will definitely take less than that!
 						for ( int i = 0; i < iNumFaces; i++ )
