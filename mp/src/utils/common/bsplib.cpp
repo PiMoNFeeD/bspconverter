@@ -538,8 +538,8 @@ const char *GetLumpName( unsigned int lumpnum )
 // "-hdr" tells us to use the HDR fields (if present) on the light sources.  Also, tells us to write
 // out the HDR lumps for lightmaps, ambient leaves, and lights sources.
 bool g_bHDR = false;
-bool g_bSaveLightData = true;
-bool g_bBSPConverterMode = false;
+
+BSPConverterOptions g_BSPConverterOptions;
 
 // Set to true to generate Xbox360 native output files
 static bool g_bSwapOnLoad = false;
@@ -1366,7 +1366,7 @@ void CGameLump::ParseGameLump( dheader_t* pHeader )
 				g_Swap.SwapFieldsToTargetEndian( &pGameLump[i] );
 			}
 
-			if ( g_bBSPConverterMode )
+			if ( g_BSPConverterOptions.m_bEnabled )
 			{
 				int length = pGameLump[i].filelen;
 				byte* data = (byte*)pHeader + pGameLump[i].fileofs;
@@ -2345,7 +2345,7 @@ void Lumps_Parse( void )
 	{
 		if ( !g_Lumps.bLumpParsed[i] && g_pBSPHeader->lumps[i].filelen )
 		{
-			if ( g_bBSPConverterMode )
+			if ( g_BSPConverterOptions.m_bEnabled )
 			{
 				if ( i == LUMP_UNUSED0 || // LUMP_FACEBRUSHES/LUMP_PROPCOLLISION: Portal 2/L4D2
 					 i == LUMP_UNUSED1 || // LUMP_FACEBRUSHLIST/LUMP_PROPHULLS: Portal 2/L4D2
@@ -2634,7 +2634,7 @@ void ValidateHeader( const char *filename, const dheader_t *pHeader )
 	{
 		Error ("%s is not a IBSP file", filename);
 	}
-	if ( g_bBSPConverterMode )
+	if ( g_BSPConverterOptions.m_bEnabled )
 	{
 		if ( pHeader->version == 21 )
 			Msg( "Valve BSP detected (version 21)\n" );
@@ -2690,7 +2690,7 @@ void LoadBSPFile( const char *filename )
 {
 	OpenBSPFile( filename );
 
-	if ( g_bBSPConverterMode )
+	if ( g_BSPConverterOptions.m_bEnabled )
 	{
 		// very specific hack: l4d2 changes lump order from [offset length version] to [version offset length]
 		// so let's check a lump we definitely know the biggest version of, to find out if it's swapped or not
@@ -2743,7 +2743,7 @@ void LoadBSPFile( const char *filename )
 	numedges = CopyLump( LUMP_EDGES, dedges );
 	numbrushes = CopyLump( LUMP_BRUSHES, dbrushes );
 	numbrushsides = CopyLump( LUMP_BRUSHSIDES, dbrushsides );
-	if ( g_bBSPConverterMode )
+	if ( g_BSPConverterOptions.m_bEnabled )
 	{
 		for ( int i = 0; i < numbrushsides; i++ )
 			dbrushsides[i].bevel = (byte)dbrushsides[i].bevel; // L4D2/ASW and above divide dbrushside_t::bevel into bevel and thin, each one byte
@@ -2757,7 +2757,7 @@ void LoadBSPFile( const char *filename )
 
 	LoadLeafAmbientLighting( numleafs );
 
-	if ( g_bBSPConverterMode && g_pBSPHeader->version == 22 ) // Tactical Intervention
+	if ( g_BSPConverterOptions.m_bEnabled && g_pBSPHeader->version == 22 ) // Tactical Intervention
 	{
 		// TI uses a separate lump for client-side only entities, so merge them together (they both contain the same data, aka a bunch of KV blocks)
 		dentdata.SetCount( g_pBSPHeader->lumps[LUMP_ENTITIES].filelen + g_pBSPHeader->lumps[24].filelen - 1 ); // -1 to skip one of null terminators that both lumps have
@@ -2774,7 +2774,7 @@ void LoadBSPFile( const char *filename )
 		CopyLump( FIELD_CHARACTER, LUMP_ENTITIES, dentdata );
 	}
 
-	if ( g_bBSPConverterMode )
+	if ( g_BSPConverterOptions.m_bEnabled )
 	{
 		numworldlightsLDR = LoadWorldLightsLump( LUMP_WORLDLIGHTS, dworldlightsLDR );
 		numworldlightsHDR = LoadWorldLightsLump( LUMP_WORLDLIGHTS_HDR, dworldlightsHDR );
@@ -2809,7 +2809,7 @@ void LoadBSPFile( const char *filename )
 	else
 		memset( &flags_lump, 0, sizeof( flags_lump ) );			// default flags to 0
 
-	if ( g_bBSPConverterMode )
+	if ( g_BSPConverterOptions.m_bEnabled )
 		g_LevelFlags = flags_lump.m_LevelFlags & (LVLFLAGS_BAKED_STATIC_PROP_LIGHTING_NONHDR | LVLFLAGS_BAKED_STATIC_PROP_LIGHTING_HDR); // these are the only valid flags for us
 	else
 		g_LevelFlags = flags_lump.m_LevelFlags;
@@ -2818,9 +2818,9 @@ void LoadBSPFile( const char *filename )
 
 	CopyLump( FIELD_SHORT, LUMP_LEAFMINDISTTOWATER, g_LeafMinDistToWater );
 
-	if ( g_bBSPConverterMode )
+	if ( g_BSPConverterOptions.m_bEnabled )
 	{
-		if ( g_bSaveLightData )
+		if ( g_BSPConverterOptions.m_bSaveLightData )
 		{
 			if ( flags_lump.m_LevelFlags & 0x00000004 ) // lightmap alpha
 				Warning( "Lightmap alpha is present, you might want to run with -nolightdata and rebuild lighting!\n" );
@@ -3310,7 +3310,7 @@ void WriteBSPFile( const char *filename, char *pUnused )
 
 	AddLump( LUMP_LEAFMINDISTTOWATER, g_LeafMinDistToWater, numleafs );
 
-	if ( g_bBSPConverterMode )
+	if ( g_BSPConverterOptions.m_bEnabled )
 	{
 		char pszFootprint[64] = "BSP21 converted to BSP20 using bspconverter";
 		AddLump( LUMP_UNUSED0, pszFootprint, 64 );

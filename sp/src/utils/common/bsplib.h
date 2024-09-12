@@ -38,8 +38,19 @@ class CUtlBuffer;
 class IZip;
 
 extern bool g_bHDR; // this is only true in vrad
-extern bool g_bSaveLightData;
-extern bool g_bBSPConverterMode;
+
+struct BSPConverterOptions
+{
+	BSPConverterOptions()
+	{
+		m_bEnabled = false;
+		m_bSaveLightData = true;
+	}
+
+	bool m_bEnabled;
+	bool m_bSaveLightData;
+};
+extern BSPConverterOptions g_BSPConverterOptions;
 
 // default width/height of luxels in world units.
 #define DEFAULT_LUXEL_SIZE ( 16.0f )

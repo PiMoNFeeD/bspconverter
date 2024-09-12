@@ -30,7 +30,7 @@ int ParseCommandLine( int argc, char** argv )
 	{
 		if ( !V_stricmp( argv[i], "-nolightdata" ) )
 		{
-			g_bSaveLightData = false;
+			g_BSPConverterOptions.m_bSaveLightData = false;
 		}
 		else if ( !V_stricmp( argv[i], "-spewmissingassets" ) )
 		{
@@ -139,7 +139,7 @@ int main(int argc, char* argv[])
 		V_snprintf( szLogFile, sizeof( szLogFile ), "%s.log", szMapFile );
 		SetSpewFunctionLogFile( szLogFile );
 
-		g_bBSPConverterMode = true;
+		g_BSPConverterOptions.m_bEnabled = true;
 
 		V_strcat_safe( szMapFile, ".bsp" );
 		Msg( "Leading %s\n", szMapFile );
