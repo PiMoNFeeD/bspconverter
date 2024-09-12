@@ -2756,7 +2756,62 @@ void LoadBSPFile( const char *filename )
 		if ( g_BSPConverterOptions.m_bSaveLightData )
 		{
 			if ( flags_lump.m_LevelFlags & 0x00000004 ) // lightmap alpha
-				Warning( "Lightmap alpha is present, you might want to run with -nolightdata and rebuild lighting!\n" );
+			{
+				if ( g_BSPConverterOptions.m_bSaveLightmapAlpha )
+				{
+					Warning( "Lightmap alpha is present; this is not a problem, but the map size will be bloated with useless data!\n" );
+				}
+				else
+				{
+					int iOldLightDataSize = dlightdataLDR.Count() + dlightdataHDR.Count();
+
+					// PiMoN: wow! C++ 11 features in Source! technologies of the future!
+					auto FixupAlphaData = []( CUtlVector<byte>& vecLightData, const int& iNumFaces, dface_t* pFaces )
+					{
+						CUtlVector<byte> vecNewLightData;
+						vecNewLightData.EnsureCapacity( vecLightData.Count() ); // same data without alpha will definitely take less than that!
+						for ( int i = 0; i < iNumFaces; i++ )
+						{
+							dface_t& face = pFaces[i];
+
+							if ( texinfo[face.texinfo].flags & (SURF_SKY | SURF_NOLIGHT) )
+								continue; // non-lit texture
+
+							int iNumLightstyles = 0;
+							for ( iNumLightstyles = 0; iNumLightstyles < MAXLIGHTMAPS; iNumLightstyles++ )
+							{
+								if ( face.styles[iNumLightstyles] == 255 )
+									break;
+							}
+
+							if ( !iNumLightstyles )
+								continue;
+
+							int iAvgLightSize = iNumLightstyles * 4; // face light offset points *past* this, keep that in mind!
+							int iLightDataSize = iAvgLightSize;
+
+							int iNumLuxels = (face.m_LightmapTextureSizeInLuxels[0] + 1) * (face.m_LightmapTextureSizeInLuxels[1] + 1);
+							if ( texinfo[face.texinfo].flags & SURF_BUMPLIGHT )
+								iLightDataSize += iNumLuxels * 4 * iNumLightstyles * (NUM_BUMP_VECTS + 1);
+							else
+								iLightDataSize += iNumLuxels * 4 * iNumLightstyles;
+
+							// lightmap alpha lives somewhere here, I believe
+
+							vecNewLightData.AddMultipleToTail( iLightDataSize, &vecLightData[face.lightofs - iAvgLightSize] );
+							face.lightofs = vecNewLightData.Count() - iLightDataSize + iAvgLightSize; // point before the light data but after average light data
+						}
+
+						vecLightData = vecNewLightData; // swap the data
+					};
+
+					FixupAlphaData( dlightdataLDR, numfaces, dfaces ); // ldr data
+					FixupAlphaData( dlightdataHDR, numfaces_hdr, dfaces_hdr ); // hdr data
+
+					// show how much disk space we saved for swag, hell yeah!
+					Msg( "Lightmap alpha is present, stripped (%d bytes)\n", iOldLightDataSize - (dlightdataLDR.Count() + dlightdataHDR.Count()) );
+				}
+			}
 		}
 		else
 		{

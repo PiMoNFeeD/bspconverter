@@ -32,6 +32,10 @@ int ParseCommandLine( int argc, char** argv )
 		{
 			g_BSPConverterOptions.m_bSaveLightData = false;
 		}
+		else if ( !V_stricmp( argv[i], "-keeplightmapalpha" ) )
+		{
+			g_BSPConverterOptions.m_bSaveLightmapAlpha = true;
+		}
 		else if ( !V_stricmp( argv[i], "-spewmissingassets" ) )
 		{
 			g_bSpewMissingAssets = true;
@@ -96,6 +100,7 @@ void PrintUsage( int argc, char** argv )
 		"\n"
 		"  -o (or -output)    : Specifies output file name, defaults to <mapname>_fixed.bsp\n"
 		"  -nolightdata       : Doesn't save any light information in the fixed file\n"
+		"  -keeplightmapalpha : Doesn't strip unused lightmap alpha data\n"
 		"  -spewmissingassets : Logs every missing brush texture and static prop model\n"
 		"  -v (or -verbose)   : Turn on verbose output\n"
 		"\n"

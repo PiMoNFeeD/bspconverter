@@ -45,10 +45,12 @@ struct BSPConverterOptions
 	{
 		m_bEnabled = false;
 		m_bSaveLightData = true;
+		m_bSaveLightmapAlpha = false;
 	}
 
 	bool m_bEnabled;
 	bool m_bSaveLightData;
+	bool m_bSaveLightmapAlpha;
 };
 extern BSPConverterOptions g_BSPConverterOptions;
 

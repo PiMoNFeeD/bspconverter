@@ -16,6 +16,7 @@ Options:
 ```
 -o (or -output)       : Specifies output file name, defaults to <mapname>_fixed.bsp
 -nolightdata          : Doesn't save any light information in the fixed file
+-keeplightmapalpha    : Doesn't strip unused lightmap alpha data
 -spewmissingassets    : Logs every missing brush texture and static prop model
 -v (or -verbose)      : Turn on verbose output
 
