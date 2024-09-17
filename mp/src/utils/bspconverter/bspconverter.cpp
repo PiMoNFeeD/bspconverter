@@ -172,6 +172,14 @@ int main(int argc, char* argv[])
 		{
 			// if input and output file names don't match, we need to fix up bundled cubemaps and patched vmts
 
+			// we only need to fix up files that are inside materials/maps/<mapname> folder, so disregard anything that isn't that
+			char szMaterialsFolder[MAX_PATH];
+			V_snprintf( szMaterialsFolder, sizeof( szMaterialsFolder ), "materials/maps/%s/", szMapName );
+			int iMaterialsFolderLength = V_strlen( szMaterialsFolder );
+
+			CUtlVector<int> vecTexDataStringsToFix;
+			vecTexDataStringsToFix.EnsureCapacity( g_TexDataStringTable.Count() );
+
 			IZip* pNewPakFile = IZip::CreateZip( NULL );
 			int iID = -1;
 			while ( 1 )
@@ -189,28 +197,49 @@ int main(int argc, char* argv[])
 					Warning( "Failed to load '%s' from lump pak in '%s'.\n", szRelativeFileName, szMapName );
 					continue;
 				}
-				
+
 				// no idea if this is necessary, but not a bad practice to make sure slashes are the same!
 				V_FixSlashes( szRelativeFileName, '/' );
 
-				// have to copy extension to a temp buffer, because path fixup below will make pointer invalid
-				char szExtension[16] = { 0 };
-				V_strcpy_safe( szExtension, V_GetFileExtension( szRelativeFileName ) );
-				if ( szExtension[0] )
+				// oh boy...
+				if ( !V_strncasecmp( szMaterialsFolder, szRelativeFileName, iMaterialsFolderLength ) )
 				{
-					// do path fixup for materials and textures that are loaded by bsp name
-					if ( !V_strcmp( szExtension, "vtf" ) || !V_strcmp( szExtension, "vmt" ) )
+					// this file does indeed live inside a map-named subfolder, fix it!
+					// but first check extension to filter out unwanted files =)
+					// have to copy extension to a temp buffer, because path fixup below will make pointer invalid
+					char szExtension[16] = { 0 };
+					V_strcpy_safe( szExtension, V_GetFileExtension( szRelativeFileName ) );
+					if ( szExtension[0] )
 					{
-						// we only need to fix up files that are inside materials/maps/<mapname> folder, so disregard anything that isn't that
-						char szMaterialsFolder[MAX_PATH];
-						V_snprintf( szMaterialsFolder, sizeof( szMaterialsFolder ), "materials/maps/%s/", szMapName );
-						int iMaterialsFolderLength = V_strlen( szMaterialsFolder );
-
-						// oh boy...
-						if ( !V_strncasecmp( szMaterialsFolder, szRelativeFileName, iMaterialsFolderLength ) )
+						// do path fixup for cubemaps
+						if ( !V_strcmp( szExtension, "vtf" ) )
 						{
-							// this vtf does indeed live inside a map-named subfolder, fix it!
-							if ( !V_strcmp( szExtension, "vtf" ) )
+							// check if this is actually a cubemap
+							bool bDoFixup = false;
+
+							// first check if it's a default cubemap
+							char szCubemapSamplePath[MAX_PATH];
+							V_snprintf( szCubemapSamplePath, sizeof( szCubemapSamplePath ), "materials/maps/%s/cubemapdefault", szMapName );
+							bDoFixup = !V_strncasecmp( szCubemapSamplePath, szRelativeFileName, V_strlen( szCubemapSamplePath ) );
+
+							// if not, iterate through all cubemap samples and see if this vtf file matches any
+							// too slow!
+							if ( !bDoFixup )
+							{
+								for ( int i = 0; i < g_nCubemapSamples; i++ )
+								{
+									V_snprintf( szCubemapSamplePath, sizeof( szCubemapSamplePath ), "materials/maps/%s/c%d_%d_%d",
+												szMapName, g_CubemapSamples[i].origin[0], g_CubemapSamples[i].origin[1], g_CubemapSamples[i].origin[2] );
+
+									if ( !V_strncasecmp( szCubemapSamplePath, szRelativeFileName, V_strlen( szCubemapSamplePath ) ) )
+									{
+										bDoFixup = true;
+										break;
+									}
+								}
+							}
+
+							if ( bDoFixup )
 							{
 								// read vtf version to see if it will load in game...
 								VTFFileBaseHeader_t vtfHeader;
@@ -221,59 +250,88 @@ int main(int argc, char* argv[])
 									if ( vtfHeader.version[0] != VTF_MAJOR_VERSION || vtfHeader.version[1] < 0 || vtfHeader.version[1] > VTF_MINOR_VERSION )
 										Warning( "Cubemap '%s' has version %d.%d, will not load in game! Rebuild cubemaps manually!\n", szRelativeFileName, vtfHeader.version[0], vtfHeader.version[1] );
 								}
+
+								// need to store fixed name in a temporary buffer, or memory will go kaboom
+								// (can't printf into szRelativeFileName while also referecing szRelativeFileName as vararg)
+								char szFixedFileName[MAX_PATH];
+								V_snprintf( szFixedFileName, sizeof( szFixedFileName ), "materials/maps/%s/%s", g_szOutputFile, &szRelativeFileName[iMaterialsFolderLength] );
+
+								qprintf( "Fixed embedded cubemap path: '%s'\n", szFixedFileName );
+
+								V_strcpy_safe( szRelativeFileName, szFixedFileName );
 							}
-
-							// need to store fixed name in a temporary buffer, or memory will go kaboom
-							char szFixedFileName[MAX_PATH];
-							V_snprintf( szFixedFileName, sizeof( szFixedFileName ), "materials/maps/%s/%s", g_szOutputFile, &szRelativeFileName[iMaterialsFolderLength] );
-
-							qprintf( "Fixed embedded file path: '%s'\n", szFixedFileName );
-
-							V_strcpy_safe( szRelativeFileName, szFixedFileName );
 						}
-					}
 
-					// do path fixup for patched materials (vbsp patches some vmts to replace env_cubemap with full path to cubemap file)
-					if ( !V_strcmp( szExtension, "vmt" ) )
-					{
-						bufFile.SetBufferType( true, true );
-
-						// here's hoping this is the only thing vbsp does...
-						KeyValues* pkvMaterial = new KeyValues( "patch" );
-						if ( pkvMaterial && pkvMaterial->LoadFromBuffer( szRelativeFileName, bufFile ) )
+						// do path fixup for vbsp-generated vmts
+						// (wvt patches and envmap patches to replace 'env_cubemap' with full path to cubemap file)
+						if ( !V_strcmp( szExtension, "vmt" ) )
 						{
-							KeyValues* pkvMaterialReplaceBlock = pkvMaterial->FindKey( "replace" );
-							if ( pkvMaterialReplaceBlock )
+							// check if this is actually a vbsp-generated vmt
+							bool bDoFixup = false;
+
+							// first check if it's a wvt patch
+							bDoFixup = V_strstr( szRelativeFileName, "_wvt_patch.vmt" ) != NULL;
+
+							// if not, load the vmt and see if it's a patch vmt that replaces $envmap
+							if ( !bDoFixup )
 							{
-								const char* pszEnvmapName = pkvMaterialReplaceBlock->GetString( "$envmap", NULL );
-								if ( pszEnvmapName )
+								bufFile.SetBufferType( true, true );
+
+								KeyValues* pkvMaterial = new KeyValues( "patch" );
+								if ( pkvMaterial && pkvMaterial->LoadFromBuffer( szRelativeFileName, bufFile ) )
 								{
-									// we only need to fix up strings that point inside maps/<mapname> folder, so disregard anything that isn't that
-									char szMaterialsFolder[MAX_PATH];
-									V_snprintf( szMaterialsFolder, sizeof( szMaterialsFolder ), "maps/%s/", szMapName );
-									int iMaterialsFolderLength = V_strlen( szMaterialsFolder );
-
-									// oh boy...
-									if ( !V_strncasecmp( szMaterialsFolder, pszEnvmapName, iMaterialsFolderLength ) )
+									KeyValues* pkvMaterialReplaceBlock = pkvMaterial->FindKey( "replace" );
+									if ( pkvMaterialReplaceBlock )
 									{
-										// this envmap does indeed live inside a map-named subfolder, fix it!
-										char szFixedEnvmapPath[MAX_PATH];
-										V_snprintf( szFixedEnvmapPath, sizeof( szFixedEnvmapPath ), "maps/%s/%s", g_szOutputFile, &pszEnvmapName[iMaterialsFolderLength] );
-										pkvMaterialReplaceBlock->SetString( "$envmap", szFixedEnvmapPath );
-
-										// PiMoN: unfortunately, KV doesn't have any way to save itself to a buffer, so I will have to commit an insane hack:
-										// save KV to a temp file first, then load that file to buffer and hope it doesn't shit itself :facepalm:
-										if ( pkvMaterial->SaveToFile( g_pFileSystem, "bspconverter_temp.txt", "GAME" ) )
+										const char* pszEnvmapName = pkvMaterialReplaceBlock->GetString( "$envmap", NULL );
+										if ( pszEnvmapName )
 										{
-											bufFile.Clear(); // if I don't clear the buffer, it will crash when trying to grow existing buffer...
-											if ( g_pFileSystem->ReadFile( "bspconverter_temp.txt", "GAME", bufFile ) )
+											// this envmap does indeed live inside a map-named subfolder, fix it!
+											// -10 to disregard 'materials/' in front
+											char szFixedEnvmapPath[MAX_PATH];
+											V_snprintf( szFixedEnvmapPath, sizeof( szFixedEnvmapPath ), "maps/%s/%s", g_szOutputFile, &pszEnvmapName[iMaterialsFolderLength - 10] );
+											pkvMaterialReplaceBlock->SetString( "$envmap", szFixedEnvmapPath );
+
+											// PiMoN: unfortunately, KV doesn't have any way to save itself to a buffer, so I will have to commit an insane hack:
+											// save KV to a temp file first, then load that file to buffer and hope it doesn't shit itself :facepalm:
+											if ( pkvMaterial->SaveToFile( g_pFileSystem, "bspconverter_temp.txt", "GAME" ) )
 											{
-												g_pFullFileSystem->RemoveFile( "bspconverter_temp.txt", "GAME" );
-												qprintf( "Fixed embedded material cubemap patch: '%s'\n", szFixedEnvmapPath );
+												bufFile.Clear(); // if I don't clear the buffer, it will crash when trying to grow existing buffer...
+												if ( g_pFileSystem->ReadFile( "bspconverter_temp.txt", "GAME", bufFile ) )
+												{
+													g_pFullFileSystem->RemoveFile( "bspconverter_temp.txt", "GAME" );
+													qprintf( "Fixed embedded material cubemap patch: '%s'\n", szFixedEnvmapPath );
+												}
 											}
+
+											bDoFixup = true;
 										}
 									}
 								}
+							}
+
+							if ( bDoFixup )
+							{
+								// save our name for later texdata fixup
+								FOR_EACH_VEC( g_TexDataStringTable, i )
+								{
+									const char* pszMaterialName = &g_TexDataStringData[g_TexDataStringTable[i]];
+									// +10 to disregard 'materials/' in front
+									if ( !V_strncasecmp( pszMaterialName, szRelativeFileName + 10, V_strlen( pszMaterialName ) ) )
+									{
+										vecTexDataStringsToFix.AddToTail( i );
+										break;
+									}
+								}
+
+								// need to store fixed name in a temporary buffer, or memory will go kaboom
+								// (can't printf into szRelativeFileName while also referecing szRelativeFileName as vararg)
+								char szFixedFileName[MAX_PATH];
+								V_snprintf( szFixedFileName, sizeof( szFixedFileName ), "materials/maps/%s/%s", g_szOutputFile, &szRelativeFileName[iMaterialsFolderLength] );
+
+								qprintf( "Fixed embedded brush material path: '%s'\n", szFixedFileName );
+
+								V_strcpy_safe( szRelativeFileName, szFixedFileName );
 							}
 						}
 					}
@@ -284,6 +342,49 @@ int main(int argc, char* argv[])
 
 			// discard old pak in favor of new pak
 			SetPakFile( pNewPakFile );
+
+			// finally, fix up texdata material names for fixed vmts
+			if ( !vecTexDataStringsToFix.IsEmpty() )
+			{
+				CUtlVector<char> vecOldTexDataStringData;
+				vecOldTexDataStringData = g_TexDataStringData;
+				CUtlVector<int> vecOldTexDataStringTable;
+				vecOldTexDataStringTable = g_TexDataStringTable;
+
+				g_TexDataStringData.RemoveAll();
+				g_TexDataStringTable.RemoveAll();
+
+				for ( int i = 0; i < numtexdata; i++ )
+				{
+					const char* pszMaterialName = &vecOldTexDataStringData[vecOldTexDataStringTable[dtexdata[i].nameStringTableID]];
+
+					bool bFixed = false;
+					FOR_EACH_VEC( vecTexDataStringsToFix, j )
+					{
+						if ( dtexdata[i].nameStringTableID == vecTexDataStringsToFix[j] )
+						{
+							// need to store fixed name in a temporary buffer, or memory will go kaboom
+							// (can't printf into szRelativeFileName while also referecing szRelativeFileName as vararg)
+							char szFixedTexDataString[MAX_PATH];
+							// -10 to disregard 'materials/' in front
+							V_snprintf( szFixedTexDataString, sizeof( szFixedTexDataString ), "maps/%s/%s", g_szOutputFile, &pszMaterialName[iMaterialsFolderLength - 10] );
+
+							qprintf( "Fixed brush texture path: '%s'\n", szFixedTexDataString );
+
+							dtexdata[i].nameStringTableID = TexDataStringTable_AddOrFindString( szFixedTexDataString );
+
+							bFixed = true;
+							break;
+						}
+					}
+
+					if ( !bFixed )
+					{
+						// just add the name as is, since we're rebuilding tex data string table from scratch
+						dtexdata[i].nameStringTableID = TexDataStringTable_AddOrFindString( pszMaterialName );
+					}
+				}
+			}
 		}
 
 		Msg( "Writing %s\n", szMapFileFixed );
