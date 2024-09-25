@@ -2574,7 +2574,7 @@ void ValidateHeader( const char *filename, const dheader_t *pHeader )
 		else if ( pHeader->version == 22 )
 			Msg( "Tactical Intervention BSP detected (version 22)\n" );
 		else
-			Error( "%s is version %i, unsupported", filename );
+			Error( "%s is version %i, not 21 or 22", filename, pHeader->version );
 	}
 	else
 	{
