@@ -2822,6 +2822,15 @@ void LoadBSPFile( const char *filename )
 	{
 		if ( g_BSPConverterOptions.m_bSaveLightData )
 		{
+			if ( dlightdataLDR.IsEmpty() && dlightdataHDR.IsEmpty() )
+				Warning( "Map has no lighting\n" );
+			else if ( dlightdataLDR.IsEmpty() )
+				Warning( "Map has HDR lighting only\n" );
+			else if ( dlightdataHDR.IsEmpty() )
+				Warning( "Map has LDR lighting only\n" );
+			else
+				qprintf( "Map has HDR and LDR lighting\n" );
+
 			if ( flags_lump.m_LevelFlags & 0x00000004 ) // lightmap alpha
 			{
 				if ( g_BSPConverterOptions.m_bSaveLightmapAlpha )
