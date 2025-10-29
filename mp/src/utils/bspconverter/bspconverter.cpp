@@ -208,8 +208,10 @@ int main(int argc, char* argv[])
 				V_FixSlashes( szRelativeFileName, '/' );
 
 				// have to copy extension to a temp buffer, because path fixup below will make pointer invalid
+				const char* pszExtension = V_GetFileExtension( szRelativeFileName );
 				char szExtension[16] = { 0 };
-				V_strcpy_safe( szExtension, V_GetFileExtension( szRelativeFileName ) );
+				if ( pszExtension )
+					V_strcpy_safe( szExtension, pszExtension );
 
 				// oh boy...
 				bool bDoFixup = false;

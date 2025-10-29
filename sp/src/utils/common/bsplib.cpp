@@ -2916,7 +2916,8 @@ void LoadBSPFile( const char *filename )
 				if ( iID == -1 )
 					break;
 
-				if ( !V_stricmp( V_GetFileExtension( szRelativeFileName ), "vhv" ) )
+				const char* pszExtension = V_GetFileExtension( szRelativeFileName );
+				if ( pszExtension && !V_stricmp( pszExtension, "vhv" ) )
 				{
 					RemoveFileFromPak( GetPakFile(), szRelativeFileName );
 					iID = -1; // reset our iteration, otherwise the loop will skip a bunch of files
