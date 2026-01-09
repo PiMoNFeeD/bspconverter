@@ -294,19 +294,19 @@ int main(int argc, char* argv[])
 									if ( pkvMaterialReplaceBlock )
 									{
 										// $envmap might live in "replace" itself, or in a subkey, need to account for both
-										auto ReplaceEnvmap = [iMaterialsFolderLength]( KeyValues* pkvMaterialBlock )
+										auto ReplaceParameter = [iMaterialsFolderLength]( KeyValues* pkvMaterialBlock, const char* pszParameterName )
 										{
 											if ( pkvMaterialBlock )
 											{
-												const char* pszEnvmapName = pkvMaterialBlock->GetString( "$envmap", NULL );
+												const char* pszEnvmapName = pkvMaterialBlock->GetString( pszParameterName, NULL );
 												if ( pszEnvmapName )
 												{
 													// this envmap does indeed live inside a map-named subfolder, fix it!
 													// -10 to disregard 'materials/' in front
 													char szFixedEnvmapPath[MAX_PATH];
 													V_snprintf( szFixedEnvmapPath, sizeof( szFixedEnvmapPath ), "maps/%s/%s", g_szOutputFile, &pszEnvmapName[iMaterialsFolderLength - 10] );
-													pkvMaterialBlock->SetString( "$envmap", szFixedEnvmapPath );
-													qprintf( "Fixed embedded material cubemap patch: '%s'\n", szFixedEnvmapPath );
+													pkvMaterialBlock->SetString( pszParameterName, szFixedEnvmapPath );
+													qprintf( "Fixed embedded material parameter patch: '%s'\n", szFixedEnvmapPath );
 
 													return true;
 												}
@@ -315,11 +315,21 @@ int main(int argc, char* argv[])
 											return false;
 										};
 
-										bDoFixup |= ReplaceEnvmap( pkvMaterialReplaceBlock );
+										bDoFixup |= ReplaceParameter( pkvMaterialReplaceBlock, "$envmap" );
+										// this can happen too, apparently...
+										bDoFixup |= ReplaceParameter( pkvMaterialReplaceBlock, "$bottommaterial" );
+										bDoFixup |= ReplaceParameter( pkvMaterialReplaceBlock, "$crackmaterial" );
+										bDoFixup |= ReplaceParameter( pkvMaterialReplaceBlock, "$fallbackmaterial" );
 										if ( pkvMaterialReplaceBlock )
 										{
 											FOR_EACH_TRUE_SUBKEY( pkvMaterialReplaceBlock, pkvMaterialBlock )
-												bDoFixup |= ReplaceEnvmap( pkvMaterialBlock );
+											{
+												bDoFixup |= ReplaceParameter( pkvMaterialBlock, "$envmap" );
+												// this can happen too, apparently...
+												bDoFixup |= ReplaceParameter( pkvMaterialBlock, "$bottommaterial" );
+												bDoFixup |= ReplaceParameter( pkvMaterialBlock, "$crackmaterial" );
+												bDoFixup |= ReplaceParameter( pkvMaterialBlock, "$fallbackmaterial" );
+											}
 										}
 									}
 
