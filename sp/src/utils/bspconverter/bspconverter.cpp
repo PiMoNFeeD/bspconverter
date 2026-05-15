@@ -336,14 +336,8 @@ int main(int argc, char* argv[])
 									// save whatever edited the material above
 									if ( bDoFixup )
 									{
-										// PiMoN: unfortunately, KV doesn't have any way to save itself to a buffer, so I will have to commit an insane hack:
-										// save KV to a temp file first, then load that file to buffer and hope it doesn't shit itself :facepalm:
-										if ( pkvMaterial->SaveToFile( g_pFileSystem, "bspconverter_temp.txt", "GAME" ) )
-										{
-											bufFile.Clear(); // if I don't clear the buffer, it will crash when trying to grow existing buffer...
-											if ( g_pFileSystem->ReadFile( "bspconverter_temp.txt", "GAME", bufFile ) )
-												g_pFullFileSystem->RemoveFile( "bspconverter_temp.txt", "GAME" );
-										}
+										bufFile.Clear(); // if I don't clear the buffer, it will crash when trying to grow existing buffer...
+										pkvMaterial->RecursiveSaveToFile( bufFile, 0 );
 									}
 
 									// now do things that don't require re-saving the material
