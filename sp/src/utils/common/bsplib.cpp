@@ -2326,11 +2326,11 @@ void Lumps_Parse( void )
 		{
 			if ( g_BSPConverterOptions.m_bEnabled )
 			{
-				if ( i == LUMP_UNUSED0 || // LUMP_FACEBRUSHES/LUMP_PROPCOLLISION: Portal 2/L4D2
-					 i == LUMP_UNUSED1 || // LUMP_FACEBRUSHLIST/LUMP_PROPHULLS: Portal 2/L4D2
-					 i == LUMP_UNUSED2 || // LUMP_PROPHULLVERTS: L4D2
-					 i == LUMP_UNUSED3 || // LUMP_PROPTRIS: L4D2
-					 i == LUMP_PHYSCOLLIDESURFACE || // LUMP_PROP_BLOB: L4D2 and above
+				if ( i == 22 || // LUMP_FACEBRUSHES/LUMP_PROPCOLLISION: Portal 2/L4D2
+					 i == 23 || // LUMP_FACEBRUSHLIST/LUMP_PROPHULLS: Portal 2/L4D2
+					 i == 24 || // LUMP_PROPHULLVERTS: L4D2
+					 i == 25 || // LUMP_PROPTRIS: L4D2
+					 i == 49 || // LUMP_PROP_BLOB: L4D2 and above
 					 i == 61 || // LUMP_OVERLAY_SYSTEM_LEVELS: L4D and above
 					 i == 62 || // LUMP_PHYSLEVEL: L4D2 and above
 					 i == 63 ) // LUMP_DISP_MULTIBLEND: ASW and above
